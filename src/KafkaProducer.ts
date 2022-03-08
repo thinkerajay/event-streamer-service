@@ -7,9 +7,10 @@ export interface PushStart {
     clientName: string
 }
 
-interface Event {
+export interface PushEvent {
     topic: string,
-    payload: string
+    type: string,
+    payload: object
 
 }
 
@@ -38,7 +39,7 @@ export default class KafkaProducer {
         await kafkaAdmin.connect()
 
         const allTopics: string[] = await kafkaAdmin.listTopics()
-        if(allTopics.includes(eventData.topic)){
+        if (allTopics.includes(eventData.topic)) {
             logger.info(`Topic %s already exists `, eventData.topic);
             return;
         }
@@ -58,7 +59,7 @@ export default class KafkaProducer {
     async pushEvents(data: string) {
         await this.producer.connect()
 
-        const eventData: Event = JSON.parse(data)
+        const eventData: PushEvent = JSON.parse(data)
         if (this.topic !== eventData.topic) {
             logger.warn('Cannot push to %o topic', eventData.topic)
             return;
@@ -66,7 +67,8 @@ export default class KafkaProducer {
         logger.info('Pushing events from producer ...')
         const jsonData = {
             clientName: this.clientName,
-            payload: eventData.payload
+            type: eventData.type,
+            ...eventData.payload
         }
 
         await this.producer.send({

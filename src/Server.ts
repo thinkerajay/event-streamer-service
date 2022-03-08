@@ -4,6 +4,9 @@ import {Server} from 'socket.io';
 import KafkaProducer from "./KafkaProducer";
 import KafkaConsumer from "./KafkaConsumer";
 import {logger} from "../config/logger";
+import DbConnector from "./DbConnector";
+import {Container} from "typedi";
+import {MONGO_DB_URI} from "../config/env";
 
 const app = express();
 const eventStreamerService = http.createServer(app);
@@ -12,18 +15,20 @@ const io = new Server(eventStreamerService);
 const port: number = Number(process.env.PORT) || 8547;
 
 
-io.on('connection',  (socket) => {
+io.on('connection', (socket) => {
     logger.info('server received connection', socket.id);
 
     const producer = new KafkaProducer();
     const consumer = new KafkaConsumer();
+    const dbConnector = new DbConnector(Container.get(MONGO_DB_URI))
     socket.on('start_event_push', async (data: any) => {
         logger.info(`received start_event_push with data %o`, data)
         await producer.createTopic(data);
     })
     socket.on('push_event', async (data: any) => {
         logger.info(`received push_event with data %o`, data)
-        await producer.pushEvents(data);
+
+        await Promise.all([await dbConnector.writeEvent(data), await producer.pushEvents(data)]);
     })
 
     socket.on('pull_event', async (data: any) => {
