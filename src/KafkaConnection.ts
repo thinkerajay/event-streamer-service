@@ -14,11 +14,11 @@ export default class KafkaConnection {
 
 
     public static getInstance(): KafkaConnection {
-        if (!KafkaConnection.instance) {
-            KafkaConnection.instance = new KafkaConnection();
-        }
+        // if (!KafkaConnection.instance) {
+        //     KafkaConnection.instance = new KafkaConnection();
+        // }
 
-        return KafkaConnection.instance;
+        return new KafkaConnection();
     }
 
 }

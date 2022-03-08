@@ -3,6 +3,7 @@ import {io, Socket} from 'socket.io-client';
 import {Container, Inject} from "typedi";
 import {EVENT_STREAMER_SERVICE_URL} from "../config/env";
 import {logger} from "../config/logger";
+import {Message} from "kafkajs";
 
 class Client {
     private readonly name: string;
@@ -31,7 +32,7 @@ class Client {
 
         setInterval(() => {
             logger.info('sending event ...')
-            this.sendSocket.emit('on', JSON.stringify({
+            this.sendSocket.emit('push_event', JSON.stringify({
                 topic: "ABC",
                 payload: {
                     ip: "10.2.1.2",
@@ -56,15 +57,42 @@ class Client {
             clientName: 'XYZ'
         }))
         this.receiveSocket.on('events', (data) => {
-            logger.info(`Received events %o`, data);
+            const eventData: Message = JSON.parse(data);
+            logger.info(`Received events %o`, Buffer.from(eventData.value).toString());
         })
 
     }
 }
 
-(async function(){
+(async function () {
     const client = new Client('xyz', 'abc', Container.get(EVENT_STREAMER_SERVICE_URL))
     client.connectAndPushEvents()
     await new Promise((resolve) => setTimeout(resolve, 3000));
     client.connectAndPullEvents(['ABC'])
+
+    // const kafka = new Kafka({
+    //     clientId: 'event-streamer-service',
+    //     brokers: ['localhost:9092'],
+    //
+    // })
+    // const producer = kafka.producer()
+    //
+    // await producer.connect()
+    // await producer.send({
+    //     topic: 'ABC',
+    //     messages: [
+    //         { value: 'Hello KafkaJS user!' },
+    //     ],
+    // })
+    //
+    // const c = kafka.consumer({
+    //     groupId: 'event-streamer-group'
+    // })
+    // await c.connect()
+    // await c.subscribe({topic: 'ABC', fromBeginning:true})
+    // await c.run({
+    //     eachMessage: async ({topic, partition, message}) => {
+    //         logger.info(`Pushing event to client %o`, message)
+    //     },
+    // })
 })()

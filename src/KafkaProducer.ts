@@ -56,12 +56,14 @@ export default class KafkaProducer {
     }
 
     async pushEvents(data: string) {
+        await this.producer.connect()
+
         const eventData: Event = JSON.parse(data)
         if (this.topic !== eventData.topic) {
-            logger.warn('cannot push to %o topic', eventData.topic)
+            logger.warn('Cannot push to %o topic', eventData.topic)
             return;
         }
-        logger.info('pushing events')
+        logger.info('Pushing events from producer ...')
         const jsonData = {
             clientName: this.clientName,
             payload: eventData.payload
