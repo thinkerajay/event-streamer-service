@@ -45,7 +45,7 @@ export default class KafkaProducer {
         }
 
         // creating topics
-        logger.info('creating topics')
+        logger.info('creating topic %s', this.topic)
         await kafkaAdmin.createTopics({
             topics: [{
                 topic: eventData.topic,
@@ -68,7 +68,7 @@ export default class KafkaProducer {
         const jsonData = {
             clientName: this.clientName,
             type: eventData.type,
-            ...eventData.payload
+            payload: eventData.payload
         }
 
         await this.producer.send({

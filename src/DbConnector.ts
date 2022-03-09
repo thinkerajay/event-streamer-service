@@ -1,10 +1,12 @@
+import 'reflect-metadata';
+
 import {MongoClient} from 'mongodb';
-import {Inject} from "typedi";
+import {Inject, Service} from "typedi";
 import {MONGO_DB_URI} from "../config/env";
 import {logger} from "../config/logger";
 import {PushEvent} from "./KafkaProducer";
 
-
+@Service()
 export default class DbConnector {
     private client: MongoClient;
 
@@ -32,6 +34,10 @@ export default class DbConnector {
             logger.warn('MongoDB write exception %o', e)
             await this.client.close();
         }
+    }
+
+    async close(){
+        await this.client.close()
     }
 
 

@@ -1,12 +1,8 @@
 import express from 'express';
 import * as http from 'http';
 import {Server} from 'socket.io';
-import KafkaProducer from "./KafkaProducer";
-import KafkaConsumer from "./KafkaConsumer";
 import {logger} from "../config/logger";
-import DbConnector from "./DbConnector";
-import {Container} from "typedi";
-import {MONGO_DB_URI} from "../config/env";
+import MessageHandlers from "./MessageHandlers";
 
 const app = express();
 const eventStreamerService = http.createServer(app);
@@ -16,33 +12,44 @@ const port: number = Number(process.env.PORT) || 8547;
 
 
 io.on('connection', (socket) => {
-    logger.info('server received connection', socket.id);
+    logger.info('EventStreamerServer received connection', socket.id);
 
-    const producer = new KafkaProducer();
-    const consumer = new KafkaConsumer();
-    const dbConnector = new DbConnector(Container.get(MONGO_DB_URI))
-    socket.on('start_event_push', async (data: any) => {
-        logger.info(`received start_event_push with data %o`, data)
-        await producer.createTopic(data);
+    const messageHandlers: MessageHandlers = new MessageHandlers()
+
+     // Accept a stream of events from a client to a topic.
+    socket.on('start_event_push', async (data: string) => {
+        await messageHandlers.handleStartEvent(data);
     })
-    socket.on('push_event', async (data: any) => {
-        logger.info(`received push_event with data %o`, data)
-
-        await Promise.all([await dbConnector.writeEvent(data), await producer.pushEvents(data)]);
+    socket.on('push_event', async (data: string) => {
+        await messageHandlers.handlePushEvents(data)
     })
 
-    socket.on('pull_event', async (data: any) => {
-        logger.info(`received pull_event with data %o`, data)
-        await consumer.connectAndSubscribe(data)
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        await consumer.pushEventsToClient(socket)
 
+    // A client should be able to ask the server for a stream of current events from a list of
+    // topics.
+    socket.on('pull_event', async (data: string) => {
+        await messageHandlers.handlePullEvents(data, socket)
+    })
+
+    // The client can also ask the server to filter the stream of events before serving the
+    // events.
+    socket.on('pull_events_with_filter', async (data: string)=>{
+        await messageHandlers.handlePullEventsWithFilter(data, socket)
+    })
+
+    // The server should be able to join/combine events from two different topics and push
+    // to another topic.
+    socket.on('pull_events_with_join', async (data: string)=>{
+        await messageHandlers.handlePullEventsWithJoin(data, socket)
+    })
+
+    socket.on('pull_events_with_avg_on_metric', async (data: string)=>{
+        await messageHandlers.handlePullEventsWithAvgMetric(data, socket)
     })
 
     socket.on('disconnect', async (reason) => {
-        logger.info('received disconnect from client')
-        await producer.disconnect()
-        await consumer.disconnect()
+        logger.info(`%s disconnected with reason %s`, socket.id, reason)
+        await messageHandlers.handleDisconnect()
     })
 
 });

@@ -10,8 +10,15 @@ import EventStreamerClient from "../src/Client";
     clientOne.connectAndPushEvents()
     clientTwo.connectAndPushEvents()
     clientThree.connectAndPushEvents()
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    clientThree.connectAndPullEvents(['ABC', 'DEF', 'XYZ'])
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    //clientThree.connectAndPullEvents(['ABC', 'DEF', 'XYZ'])
+    // clientThree.connectAndPullEventsWithFilter(['ABC', 'DEF', 'XYZ'], [{
+    //     key: 'cpu',
+    //     value: '50',
+    //     operation: '>'
+    // }])
+
+    clientThree.connectAndPullEventsWithJoin(['ABC', 'DEF', 'XYZ'], 'ip', 'OMO')
 
 
 })()
