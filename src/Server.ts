@@ -6,11 +6,11 @@ import MessageHandlers from "./MessageHandlers";
 
 const app = express();
 const eventStreamerService = http.createServer(app);
-const io = new Server(eventStreamerService);
+const eventStreamerServiceWs = new Server(eventStreamerService);
 
 const port: number = Number(process.env.PORT) || 8547;
 
-io.on('connection', (socket) => {
+eventStreamerServiceWs.on('connection', (socket) => {
     logger.info('EventStreamerServer received connection', socket.id);
 
     const messageHandlers: MessageHandlers = new MessageHandlers()
