@@ -78,6 +78,7 @@ export default class KafkaProducer {
             const eventData: EventWithAvgCal = JSON.parse(data);
             logger.info(`Starting push event with avg cal loop %o, %s....`, eventData.keys, typeof eventData.keys)
             const keyVals = new Map<string, number>();
+            const metricCount = new Map<string, number>();
             if (!this.events) {
                 logger.info(`no events for avg calculation yet....`)
                 return;
@@ -87,10 +88,18 @@ export default class KafkaProducer {
                 for (const key of ['cpu', 'memory', 'disk']) {
                     if (eventObj[key]) {
                         keyVals.set(key, (Number(keyVals.get(key)) || 0) + (Number(eventObj[key]) || 0));
+                        metricCount.set(key, (Number(metricCount.get(key)) || 0) + 1);
                     }
                 }
             }
             const sendSocket: Socket = socketClientNameMap.get(eventData.clientName);
+            for (const key of ['cpu', 'memory', 'disk']) {
+                if (metricCount.get(key) == 0) {
+                    // should not happen
+                    continue;
+                }
+                keyVals.set(key, keyVals.get(key) / metricCount.get(key));
+            }
             logger.info(`Sending Avg Calculated events of length %o.... `, keyVals);
             sendSocket.emit('events_with_avg_cal', JSON.stringify(Object.fromEntries(keyVals)));
             // reset events array
