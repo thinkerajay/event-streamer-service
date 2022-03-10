@@ -36,7 +36,22 @@ export default class DbConnector {
         }
     }
 
-    async close(){
+    async findRecords(filter: object) {
+        try {
+            await this.client.connect();
+
+            const database = this.client.db("events-streamer-db");
+            const eventsCollection = database.collection("events");
+
+            return eventsCollection.find(filter)
+
+        } catch (e) {
+            logger.warn('MongoDB read exception %o', e)
+            await this.client.close();
+        }
+    }
+
+    async close() {
         await this.client.close()
     }
 

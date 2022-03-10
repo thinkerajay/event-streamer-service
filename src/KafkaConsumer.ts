@@ -1,9 +1,12 @@
+import 'reflect-metadata';
 import {Consumer, Kafka} from "kafkajs";
 import KafkaConnection from "./KafkaConnection";
 import {Socket} from "socket.io";
 import {logger} from "../config/logger";
 import KafkaProducer, {PushEvent} from "./KafkaProducer";
 import {compact} from 'lodash';
+import DbConnector from "./DbConnector";
+import {Container} from "typedi";
 
 
 export interface PullStart {
@@ -38,9 +41,11 @@ export default class KafkaConsumer {
     private topics: string[];
     private consumer: Consumer;
     private clientName: string;
+    private dbConnector: DbConnector;
 
     constructor() {
         this.kafka = KafkaConnection.getInstance().kafka;
+        this.dbConnector = Container.get(DbConnector);
         this.consumer = this.kafka.consumer({
             groupId: 'event-streamer-group'
         });
@@ -76,11 +81,49 @@ export default class KafkaConsumer {
         })
     }
 
+    buildFilterQuery(filters: EventFilter[], operation: Operation) {
+        const parameters = [];
+        for (const filter of filters) {
+            const key = filter.key;
+            let parameter;
+            switch (filter.operation) {
+                case '>':
+                    parameter = {key: {'$gt': filter.value}}
+                    break;
+                case '<':
+                    parameter = {key: {'$lt': filter.value}}
+                    break;
+                case '==':
+                    parameter = {key: filter.value}
+                    break;
+            }
+            parameters.push(parameter);
+        }
+        if (operation == Operation.OR) {
+            return {
+                '$or': parameters
+            }
+        }
+
+        return {
+            '$and': parameters
+        }
+
+    }
+
     async pushFilteredEventsToClient(data: string, socket: Socket) {
         logger.info(`Pushing Filtered events to client %s`, this.clientName)
 
         const eventData: EventWithFilters = JSON.parse(data);
         const filters: EventFilter[] = eventData.filters;
+
+        const filterQuery = this.buildFilterQuery(filters, eventData.operation);
+        const cursor = await this.dbConnector.findRecords(filterQuery);
+
+        // send all the records received till now to client
+        await cursor.forEach((event) =>{
+            socket.emit('filtered_events', JSON.stringify(event))
+        })
 
         await this.consumer.run({
             eachMessage: async ({topic, partition, message}) => {
@@ -200,7 +243,7 @@ export default class KafkaConsumer {
                 const endTime = new Date();
                 if (endTime.getSeconds() - startTime.getSeconds() > 5) {
                     logger.info(`Pushing %s merged records to client %s`, mergedData.size, this.clientName);
-                    //await this.pushToClients(compact([...mergedData.values()]), socket, eventData.topic);
+                    // await this.pushToClients(compact([...mergedData.values()]), socket, eventData.topic);
                     startTime = endTime;
                     mergedData = new Map<string, object>();
                 }

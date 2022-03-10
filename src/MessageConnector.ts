@@ -7,28 +7,36 @@ import {logger} from "../config/logger";
 import {Socket} from "socket.io";
 
 
-
-
-
-export default class MessageConnector{
+export default class MessageConnector {
     private readonly kafkaProducer: KafkaProducer;
     private readonly kafkaConsumer: KafkaConsumer;
     private readonly dbConnector: DbConnector;
+
     constructor() {
         this.kafkaConsumer = new KafkaConsumer();
         this.kafkaProducer = new KafkaProducer();
         this.dbConnector = Container.get(DbConnector);
     }
 
-    async initiateKafkaPush(data: string){
+    async initiateKafkaPush(data: string) {
         await this.kafkaProducer.createTopic(data);
     }
 
-    async writeEvents(data: string){
+    async initiateKafkaPushWithAvgCal(data: string) {
+        await this.kafkaProducer.createTopic(data);
+        // start a loop which calculates average over a window and sends to a client
+        this.kafkaProducer.startLoop(data);
+    }
+
+    async writeEvents(data: string) {
         await Promise.all([await this.dbConnector.writeEvent(data), await this.kafkaProducer.pushEvents(data)]);
     }
 
-    async pushEventsToClient(data: string, socket: Socket){
+    async writeEventsWithAvgCal(data: string) {
+        await this.kafkaProducer.pushEventsWithAvgCal(data);
+    }
+
+    async pushEventsToClient(data: string, socket: Socket) {
         logger.info(`received pull_event with data %o`, data)
         await this.kafkaConsumer.connectAndSubscribe(data)
         // sleep for 2secs
@@ -37,26 +45,26 @@ export default class MessageConnector{
     }
 
 
-    async pushFilteredEventsToClient(data: string, socket: Socket){
+    async pushFilteredEventsToClient(data: string, socket: Socket) {
         // subscribe to all the topics provided in the message
         await this.kafkaConsumer.connectAndSubscribe(data);
         await this.kafkaConsumer.pushFilteredEventsToClient(data, socket);
     }
 
-    async pushJoinedEventsToClient(data: string, socket: Socket){
+    async pushJoinedEventsToClient(data: string, socket: Socket) {
         // subscribe to all the topics provided in the message
         await this.kafkaConsumer.connectAndSubscribe(data);
         await this.kafkaProducer.createTopic(data);
         await this.kafkaConsumer.pushJoinedEventsToClient(data, socket, this.kafkaProducer);
     }
 
-    async pushAvgMetricEventsToClient(data: string, socket: Socket){
+    async pushAvgMetricEventsToClient(data: string, socket: Socket) {
         // subscribe to all the topics provided in the message
         await this.kafkaConsumer.connectAndSubscribe(data);
         await this.kafkaConsumer.pushAvgMetricEventsToClient(data, socket);
     }
 
-    async close(){
+    async close() {
         await this.kafkaConsumer.disconnect()
         await this.kafkaConsumer.disconnect()
         await this.dbConnector.close()

@@ -2,6 +2,7 @@ import MessageConnector from "./MessageConnector";
 import {Socket} from "socket.io";
 import {logger} from "../config/logger";
 
+export let socketClientNameMap = new Map<string, Socket>();
 export default class MessageHandlers {
     private readonly messageConnector: MessageConnector;
 
@@ -9,14 +10,32 @@ export default class MessageHandlers {
         this.messageConnector = new MessageConnector();
     }
 
+    // set clientName as key and socket as value basically as pointer maps
+    setSocketClientMap(data: string, socket: Socket) {
+        const eventDate: {
+            clientName: string
+        } = JSON.parse(data);
+        socketClientNameMap.set(eventDate.clientName, socket);
+    }
+
     async handleStartEvent(data: string) {
         logger.info(`Received start_event_push with data %o`, data)
         await this.messageConnector.initiateKafkaPush(data)
     }
 
+    async handleStartEventWithAvgCal(data: string) {
+        logger.info(`Received start_event_push_with_avg_cal with data %o`, data)
+        await this.messageConnector.initiateKafkaPushWithAvgCal(data)
+    }
+
     async handlePushEvents(data: string) {
         logger.info(`Received push_event with data %o`, data)
         await this.messageConnector.writeEvents(data)
+    }
+
+    async handlePushEventsWithCalAvg(data: string) {
+        logger.info(`Received push_event_with_cal_avg with data %o`, data)
+        await this.messageConnector.writeEventsWithAvgCal(data)
     }
 
     async handlePullEvents(data: string, socket: Socket) {
