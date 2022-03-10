@@ -16,8 +16,8 @@
 - in one terminal run `npm run start`
 
 ## How to simulate different aspects of the assignment?
-#### uncomment method calls in testClient.ts to simulate different points of the assignment
-- in other terminal run `ts-node  ts-node TestClient/testClient.ts` 
+#### uncomment method calls in simulatorClient.ts to simulate different points of the assignment
+- in other terminal run `ts-node  ts-node simulator/simulatorClient.ts` 
 
 
 ## How to verify data?
